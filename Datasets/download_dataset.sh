@@ -19,14 +19,14 @@ if [[ -z "${DATASET_URLS[$DATASET_NAME]}" ]]; then
 fi
 
 DATASET_URL=${DATASET_URLS[$DATASET_NAME]}
-OUTPUT_FILE="Datasets/${DATASET_NAME}.zip"
+OUTPUT_FILE="${DATASET_NAME}.zip"
 EXTRACT_FOLDER="${DATASET_NAME}"
 
 echo "Downloading $DATASET_NAME..."
 wget -O $OUTPUT_FILE $DATASET_URL
 
 echo "Extracting $DATASET_NAME..."
-unzip -o $OUTPUT_FILE -d $EXTRACT_FOLDER
+unzip -o $OUTPUT_FILE -d Datasets/ && mv Datasets/*${DATASET_NAME}* $EXTRACT_FOLDER
 
 rm $OUTPUT_FILE
 
