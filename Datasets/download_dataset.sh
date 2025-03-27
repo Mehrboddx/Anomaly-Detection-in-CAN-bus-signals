@@ -7,8 +7,8 @@ fi
 DATASET_NAME="$1"
 
 declare -A DATASET_URLS
-DATASET_URLS["SynCAN"]="https://github.com/etas/SynCAN/archive/refs/heads/main.zip"
-DATASET_URLS["OTIDS"]="https://www.dropbox.com/scl/fo/8kll7yvbgogkp0vahowvm/ADhDIC8LRFL8wHUexib3C3w?rlkey=43n570cnodtq6yls139r4yvn7&e=1&st=em61xu2d&dl=0"
+DATASET_URLS["syncan"]="https://github.com/etas/SynCAN/archive/refs/heads/master.zip"
+DATASET_URLS["otids"]="https://www.dropbox.com/scl/fo/8kll7yvbgogkp0vahowvm/ADhDIC8LRFL8wHUexib3C3w?rlkey=43n570cnodtq6yls139r4yvn7&e=1&st=em61xu2d&dl=0"
 
 if [[ -z "${DATASET_URLS[$DATASET_NAME]}" ]]; then
     echo "Error: Dataset '$DATASET_NAME' not found."
