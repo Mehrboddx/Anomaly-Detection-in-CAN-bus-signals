@@ -13,7 +13,6 @@ Syncan is pretty straightforward just do:
 
 ```
 bash download_dataset.sh "syncan"
-
 ```
 It will be ready to use.
 
@@ -22,6 +21,5 @@ It will be ready to use.
 ```
 bash download_dataset.sh "road"
 python road_labeler.py --logs-folder "road/signal_extractions/attack"
-
 ```
 And the dataset will be ready to use.
