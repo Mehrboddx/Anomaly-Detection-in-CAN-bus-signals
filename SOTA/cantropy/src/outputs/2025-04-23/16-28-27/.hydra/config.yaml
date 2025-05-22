@@ -1,0 +1,58 @@
+dataset_name: syncan
+data_type: training
+root_dir: none
+data_dir: none
+train_data_dir: ../datasets/syncan/ambients
+test_data_dir: ../datasets/syncan/attacks
+scaler_dir: ../scaler/
+features_dir: ../artifacts/features/
+results_dir: ../artifacts/results/
+plot_dir: ../artifacts/figures/
+org_features:
+- Label
+- Time
+- ID
+- Signal1_of_ID
+- Signal2_of_ID
+- Signal3_of_ID
+- Signal4_of_ID
+features:
+- Sig_1_of_ID_2
+- Sig_1_of_ID_7
+- Sig_2_of_ID_3
+- Sig_1_of_ID_10
+- Sig_1_of_ID_9
+- Sig_1_of_ID_1
+- Sig_4_of_ID_10
+- Sig_2_of_ID_2
+- Sig_3_of_ID_10
+- Sig_1_of_ID_6
+- Sig_2_of_ID_5
+- Sig_1_of_ID_4
+- Sig_1_of_ID_5
+- Sig_3_of_ID_2
+- Sig_1_of_ID_8
+- Sig_2_of_ID_6
+- Sig_2_of_ID_10
+- Sig_2_of_ID_7
+- Sig_2_of_ID_1
+- Sig_1_of_ID_3
+attributes:
+- File
+- Feature
+- Window
+- Label
+windsizes:
+- 500
+batch_size: 1000000
+domain_list:
+- temporal
+- statistical
+varianceThresholds:
+- 0.0
+- 0.005
+- 0.01
+- 0.015
+- 0.02
+num_signals: 20
+fraction: 1.0

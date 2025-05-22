@@ -1,0 +1,16 @@
+name: cantropy
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - hydra-core
+  - numpy
+  - pandas
+  - seaborn
+  - tqdm
+  - pip:
+    - tsfel==0.1.6
+    - keras==2.10.0
+    - tensorflow==2.10.0
+    - scikit-learn
