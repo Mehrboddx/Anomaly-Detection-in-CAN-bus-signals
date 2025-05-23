@@ -4,8 +4,8 @@ data_type : training # testing (override)
 eval_type : original
 root_dir: 'none' # Dummy value, will be assigned dynamically
 data_dir: 'none' # Dummy value, will be assigned dynamically
-train_data_dir: ../../../datasets/can-ids/road/signal_extractions/ambient
-test_data_dir: ../../../datasets/can-ids/road/signal_extractions/attack
+train_data_dir: ../../../Datasets/road/signal_extractions/ambient
+test_data_dir: ../../../Datasets/road/signal_extractions/attack
 scaler_dir: ../scaler/
 org_columns : ['Label', 'Time', 'ID',  Signal_1_of_ID,Signal_2_of_ID,Signal_3_of_ID,Signal_4_of_ID,Signal_5_of_ID,Signal_6_of_ID,Signal_7_of_ID,Signal_8_of_ID,Signal_9_of_ID,Signal_10_of_ID,Signal_11_of_ID,Signal_12_of_ID,Signal_13_of_ID,Signal_14_of_ID,Signal_15_of_ID,Signal_16_of_ID,Signal_17_of_ID,Signal_18_of_ID,Signal_19_of_ID,Signal_20_of_ID,Signal_21_of_ID,Signal_22_of_ID]
 features : [Sig_7_of_ID_1413, 
