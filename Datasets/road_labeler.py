@@ -53,8 +53,5 @@ def batch_process_logs(logs_folder):
 
 # Command-line interface
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process CAN log files and label attacks.")
-    parser.add_argument("--logs-folder", type=str, required=True, help="Path to the folder containing log files.")
-    args = parser.parse_args()
-    batch_process_logs(args.logs_folder)
+    batch_process_logs("road/signal_extractions/attacks")  # Use the provided folder path
 
