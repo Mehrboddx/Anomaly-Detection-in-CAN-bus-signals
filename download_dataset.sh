@@ -37,7 +37,12 @@ rm $OUTPUT_FILE
 if [ "$DATASET_NAME" == "syncan" ]; then
     # Find the folder that was unzipped and rename it to "syncan"
     FOLDER_NAME=$(find Datasets/ -maxdepth 1 -type d -name "*SynCAN*" | head -n 1)
-    
+    if [ -d "Datasets/SynCAN-master" ]; then
+        mv Datasets/SynCAN-master "$EXTRACT_FOLDER"
+    else
+        echo "Error: Expected folder 'SynCAN-master' not found after extraction."
+        exit 1
+    fi
     if [ -z "$FOLDER_NAME" ]; then
         echo "Error: Could not find the extracted SynCAN folder."
         exit 1
