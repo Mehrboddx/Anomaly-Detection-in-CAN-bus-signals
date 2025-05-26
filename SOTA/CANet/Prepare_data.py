@@ -20,8 +20,12 @@ for filename in os.listdir(ambient_folder):
         # Load the CSV data
         df = pd.read_csv(file_path)
         
-        # Split 80% train, 20% val
-        train_df, val_df = train_test_split(df, test_size=0.2, random_state=42, shuffle=True)
+        # Determine split index based on 80/20
+        split_idx = int(0.8 * len(df))
+
+        # Use first 80% for train, last 20% for validation
+        train_df = df.iloc[:split_idx]
+        val_df = df.iloc[split_idx:]
         
         # Save the splits
         train_df.to_csv(os.path.join(train_folder, filename), index=False)
