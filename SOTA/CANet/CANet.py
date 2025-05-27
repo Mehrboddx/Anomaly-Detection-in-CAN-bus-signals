@@ -338,7 +338,7 @@ for epoch in range(n_epoch):
         try:
             # TRAINING PHASE for current file
             print(f"Training with {train_file}...")
-            sliced_files = slice_data(train_file, 10)
+            sliced_files = slice_data(train_file, 15)
             
             file_train_losses = []
             for sliced_file in sliced_files:
@@ -376,7 +376,7 @@ for epoch in range(n_epoch):
         if val_file and Path(val_file).exists():
             try:
                 print(f"Validating with {val_file}...")
-                sliced_val_files = slice_data(val_file, 10)
+                sliced_val_files = slice_data(val_file, 15)
                 
                 file_val_losses = []
                 for sliced_val_file in sliced_val_files:
