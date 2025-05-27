@@ -316,79 +316,120 @@ print(f"Starting training at {starttime}")
 for epoch in range(n_epoch):
     print(f'********** Epoch {epoch+1}/{n_epoch} **********')
     
-    # Train the model
-    print("Training phase...")
-    for data_file in data_files['train']:
-        if not Path(data_file).exists():
-            print(f"Warning: Training file {data_file} not found, skipping...")
+    epoch_train_losses = []
+    epoch_val_losses = []
+    
+    # Process each training file with corresponding validation
+    for i, train_file in enumerate(data_files['train']):
+        print(f"\n--- Processing file pair {i+1}/{len(data_files['train'])} ---")
+        
+        # Check if training file exists
+        if not Path(train_file).exists():
+            print(f"Warning: Training file {train_file} not found, skipping...")
             continue
-            
+        
+        # Get corresponding validation file
+        if i < len(data_files['valid']):
+            val_file = data_files['valid'][i]
+        else:
+            print(f"Warning: No corresponding validation file for {train_file}, skipping validation for this file")
+            val_file = None
+        
         try:
-            sliced_files = slice_data(data_file, 10)  # When the data is too big to make inputs at once
+            # TRAINING PHASE for current file
+            print(f"Training with {train_file}...")
+            sliced_files = slice_data(train_file, 10)
+            
+            file_train_losses = []
             for sliced_file in sliced_files:
                 x_train_dict, y_train = load_inputs(sliced_file, time_cutoff=TRAIN_START, label=False, shuffle=True, seed=epoch)
                 
                 if len(y_train) == 0:
                     print(f"No training data in {sliced_file}, skipping...")
                     continue
-                    
-                print(f'Training with {sliced_file} {y_train.shape}')
+                
+                print(f'Training with slice: {sliced_file} {y_train.shape}')
                 
                 with tf.device('CPU'):
                     train_ds = tf.data.Dataset.from_tensor_slices((x_train_dict, y_train))
                 train_ds = train_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-                model.fit(train_ds, verbose=2)
+                
+                # Train and capture loss
+                history = model.fit(train_ds, verbose=2)
+                if hasattr(history.history, 'loss') and history.history['loss']:
+                    file_train_losses.append(history.history['loss'][-1])
                 
                 del x_train_dict, y_train, train_ds
                 gc.collect()
-        except Exception as e:
-            print(f"Error processing training file {data_file}: {e}")
-            continue
-
-    # Validate the model
-    print("Validation phase...")
-    val_loss = 0
-    val_count = 0
-    
-    for data_file in data_files['valid']:
-        if not Path(data_file).exists():
-            print(f"Warning: Validation file {data_file} not found, skipping...")
-            continue
             
-        try:
-            sliced_files = slice_data(data_file, 10)
-            for sliced_file in sliced_files:
-                x_valid_dict, y_valid = load_inputs(sliced_file, time_cutoff=TRAIN_START, label=False, shuffle=False)
-                
-                if len(y_valid) == 0:
-                    print(f"No validation data in {sliced_file}, skipping...")
-                    continue
-                    
-                print(f'Validating with {sliced_file} {y_valid.shape}')
-                
-                with tf.device('CPU'):
-                    valid_ds = tf.data.Dataset.from_tensor_slices((x_valid_dict, y_valid))
-                valid_ds = valid_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-                
-                batch_loss = model.evaluate(valid_ds, verbose=2)
-                val_loss += batch_loss
-                val_count += 1
-                
-                del x_valid_dict, y_valid, valid_ds
-                gc.collect()
+            # Calculate average training loss for this file
+            if file_train_losses:
+                avg_file_train_loss = sum(file_train_losses) / len(file_train_losses)
+                epoch_train_losses.append(avg_file_train_loss)
+                print(f"Average training loss for {train_file}: {avg_file_train_loss:.6f}")
+            
         except Exception as e:
-            print(f"Error processing validation file {data_file}: {e}")
+            print(f"Error processing training file {train_file}: {e}")
             continue
-
-    if val_count > 0:
-        avg_val_loss = val_loss / val_count
-        print(f"Average validation loss: {avg_val_loss:.6f}")
+        
+        # VALIDATION PHASE for corresponding file
+        if val_file and Path(val_file).exists():
+            try:
+                print(f"Validating with {val_file}...")
+                sliced_val_files = slice_data(val_file, 10)
+                
+                file_val_losses = []
+                for sliced_val_file in sliced_val_files:
+                    x_valid_dict, y_valid = load_inputs(sliced_val_file, time_cutoff=TRAIN_START, label=False, shuffle=False)
+                    
+                    if len(y_valid) == 0:
+                        print(f"No validation data in {sliced_val_file}, skipping...")
+                        continue
+                    
+                    print(f'Validating with slice: {sliced_val_file} {y_valid.shape}')
+                    
+                    with tf.device('CPU'):
+                        valid_ds = tf.data.Dataset.from_tensor_slices((x_valid_dict, y_valid))
+                    valid_ds = valid_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+                    
+                    # Evaluate and capture loss
+                    batch_loss = model.evaluate(valid_ds, verbose=2)
+                    file_val_losses.append(batch_loss)
+                    
+                    del x_valid_dict, y_valid, valid_ds
+                    gc.collect()
+                
+                # Calculate average validation loss for this file
+                if file_val_losses:
+                    avg_file_val_loss = sum(file_val_losses) / len(file_val_losses)
+                    epoch_val_losses.append(avg_file_val_loss)
+                    print(f"Average validation loss for {val_file}: {avg_file_val_loss:.6f}")
+                
+            except Exception as e:
+                print(f"Error processing validation file {val_file}: {e}")
+        elif val_file:
+            print(f"Warning: Validation file {val_file} not found")
+    
+    # Print epoch summary
+    print(f"\n--- Epoch {epoch+1} Summary ---")
+    if epoch_train_losses:
+        avg_epoch_train_loss = sum(epoch_train_losses) / len(epoch_train_losses)
+        print(f"Average training loss for epoch: {avg_epoch_train_loss:.6f}")
     else:
-        print("No validation data processed")
-
-    # Save the model weights
-    weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
-    model.save_weights(weight_name)
-    print(f"Model weights saved to {weight_name}")
+        print("No training data processed in this epoch")
+    
+    if epoch_val_losses:
+        avg_epoch_val_loss = sum(epoch_val_losses) / len(epoch_val_losses)
+        print(f"Average validation loss for epoch: {avg_epoch_val_loss:.6f}")
+    else:
+        print("No validation data processed in this epoch")
+    
+    # Save model weights after each epoch
+    try:
+        weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
+        model.save_weights(weight_name)
+        print(f"✓ Model weights saved to {weight_name}")
+    except Exception as e:
+        print(f"Error saving model weights: {e}")
 
 print("Training completed!")

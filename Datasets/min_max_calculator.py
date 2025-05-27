@@ -4,10 +4,8 @@ import cantools
 import os
 import tempfile
 import shutil
-# === 1. Load min/max values from DBC ===
 
-import pandas as pd
-import cantools
+# === 1. Load min/max values from DBC ===
 
 def get_signal_min_max(signal):
     if signal.minimum is not None and signal.maximum is not None and signal.minimum != signal.maximum:
@@ -44,7 +42,6 @@ def normalize_chunk(chunk, signal_ranges):
         col_name = chunk.columns[col_idx]
         signal_num = col_idx - 3
 
-        # Normalize per frame_id in this chunk
         for frame_id in chunk["ID"].unique():
             key = f"{frame_id}+{signal_num}"
             if key not in signal_ranges:
@@ -62,9 +59,7 @@ def normalize_chunk(chunk, signal_ranges):
             ) / (max_val - min_val)
     return chunk
 
-def normalize_csv_chunks(csv_path, dbc_path, chunksize=100_000):
-    signal_ranges = load_signal_ranges(dbc_path)
-
+def normalize_csv_chunks(csv_path, signal_ranges, chunksize=100_000):
     # Create a temp file in the same directory as the original
     dir_name = os.path.dirname(csv_path)
     with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=dir_name, suffix='.csv') as tmpfile:
@@ -85,22 +80,20 @@ def normalize_csv_chunks(csv_path, dbc_path, chunksize=100_000):
     shutil.move(tmp_path, csv_path)
     print(f"Normalized and overwritten: {csv_path}")
 
-# Example usage:
+# === Usage ===
+
 if __name__ == "__main__":
-    files = glob.glob("road/signal_extractions/ambient/*.csv")
     dbc_path = "road/signal_extractions/DBC/anonymized.dbc"
+    signal_ranges = load_signal_ranges(dbc_path)  # Only once
 
-    for file in files:
-        output_path = file  # Overwrite the original file
-        normalize_csv_chunks(file, dbc_path)
-        print(f"Normalized and overwritten: {file}")
-    
-    files = glob.glob("road/signal_extractions/attacks/*.csv")
-    dbc_path = "road/signal_extractions/DBC/anonymized.dbc"
+    # Normalize ambient files
+    ambient_files = glob.glob("road/signal_extractions/ambient/*.csv")
+    for file in ambient_files:
+        normalize_csv_chunks(file, signal_ranges)
 
-    for file in files:
-        output_path = file  # Overwrite the original file
-        normalize_csv_chunks(file, dbc_path)
-        print(f"Normalized and overwritten: {file}")
+    # Normalize attack files
+    attack_files = glob.glob("road/signal_extractions/attacks/*.csv")
+    for file in attack_files:
+        normalize_csv_chunks(file, signal_ranges)
 
 
