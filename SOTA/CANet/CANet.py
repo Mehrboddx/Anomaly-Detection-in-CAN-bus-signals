@@ -398,18 +398,22 @@ for epoch in range(n_epoch):
                     
                     del x_valid_dict, y_valid, valid_ds
                     gc.collect()
-                
                 # Calculate average validation loss for this file
                 if file_val_losses:
                     avg_file_val_loss = sum(file_val_losses) / len(file_val_losses)
                     epoch_val_losses.append(avg_file_val_loss)
                     print(f"Average validation loss for {val_file}: {avg_file_val_loss:.6f}")
-                
             except Exception as e:
                 print(f"Error processing validation file {val_file}: {e}")
+                
         elif val_file:
             print(f"Warning: Validation file {val_file} not found")
-    
+        try:
+            weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
+            model.save_weights(weight_name)
+            print(f"✓ Model weights saved to {weight_name}")
+        except Exception as e:
+            print(f"Error saving model weights: {e}")
     # Print epoch summary
     print(f"\n--- Epoch {epoch+1} Summary ---")
     if epoch_train_losses:
@@ -425,11 +429,5 @@ for epoch in range(n_epoch):
         print("No validation data processed in this epoch")
     
     # Save model weights after each epoch
-    try:
-        weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
-        model.save_weights(weight_name)
-        print(f"✓ Model weights saved to {weight_name}")
-    except Exception as e:
-        print(f"Error saving model weights: {e}")
 
 print("Training completed!")
