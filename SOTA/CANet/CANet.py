@@ -371,7 +371,12 @@ for epoch in range(n_epoch):
         except Exception as e:
             print(f"Error processing training file {train_file}: {e}")
             continue
-        
+        try:
+            weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
+            model.save_weights(weight_name)
+            print(f"✓ Model weights saved to {weight_name}")
+        except Exception as e:
+            print(f"Error saving model weights: {e}")
         # VALIDATION PHASE for corresponding file
         if val_file and Path(val_file).exists():
             try:
@@ -408,12 +413,6 @@ for epoch in range(n_epoch):
                 
         elif val_file:
             print(f"Warning: Validation file {val_file} not found")
-        try:
-            weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}'
-            model.save_weights(weight_name)
-            print(f"✓ Model weights saved to {weight_name}")
-        except Exception as e:
-            print(f"Error saving model weights: {e}")
     # Print epoch summary
     print(f"\n--- Epoch {epoch+1} Summary ---")
     if epoch_train_losses:
