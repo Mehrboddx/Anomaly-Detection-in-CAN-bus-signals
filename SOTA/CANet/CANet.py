@@ -372,7 +372,7 @@ for epoch in range(n_epoch):
             print(f"Error processing training file {train_file}: {e}")
             continue
         try:
-            weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}.h5'
+            weight_name = f'models/CANET/road_{starttime}_epoch{epoch+1:02d}.weights.h5'
             model.save_weights(weight_name)
             print(f"✓ Model weights saved to {weight_name}")
         except Exception as e:
