@@ -54,9 +54,9 @@ def normalize_chunk(chunk, signal_ranges):
 
             mask = chunk["ID"] == frame_id
             chunk[col_name] = chunk[col_name].astype(float)
-            chunk.loc[mask, col_name] = (
+            chunk.loc[mask, col_name] = ((
                 pd.to_numeric(chunk.loc[mask, col_name], errors='coerce') - min_val
-            ) / (max_val - min_val)
+            ) / (max_val - min_val)).round(6)
     return chunk
 
 def normalize_csv_chunks(csv_path, signal_ranges, chunksize=100_000):

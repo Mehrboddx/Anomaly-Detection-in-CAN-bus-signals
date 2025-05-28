@@ -72,7 +72,7 @@ print("ID_FREQ =", ID_MPS)
 print("ID_NSIG =", dict(ID_NSIG))
 
 # Filter IDs by frequency threshold
-ID_FREQ = {k: v for k, v in ID_MPS.items() if v >= 40}
+ID_FREQ = {k: v for k, v in ID_MPS.items() if v >= 50}
 ID_NSIG = {k: ID_NSIG[k] for k in ID_FREQ.keys()}
 
 print(f"Filtered to {len(ID_FREQ)} IDs with frequency >= 40")
@@ -124,7 +124,7 @@ def load_arrange_data(file_path, print_option=False):
 def str_to_list(data_str: str) -> list:
     """Convert string data to list of integers"""
     data_list_str = data_str.split()
-    data_list = [int(x) for x in data_list_str]
+    data_list = [float(x) for x in data_list_str]
     if len(data_list) < 8:  # fill with dummy values (0) to 8 bytes
         data_list += [0] * (8 - len(data_list))
     return data_list
@@ -202,7 +202,7 @@ def prepare_dataset(file_path, time_cutoff, label='last', print_option=True):
     else:
         return data_dict
 
-def slice_data(file_path: str, n_sliced: int):
+def slice_data(file_path: str):
     """Slice large data files into smaller chunks"""
     file_path = Path(file_path)
     
@@ -213,10 +213,10 @@ def slice_data(file_path: str, n_sliced: int):
     else:
         raise Exception(f'File type {file_path.suffix} not supported')
     
-    p = len(df) // n_sliced
+    p = 40000
     split_indices = list(range(0, len(df) + 1, p))[:-1]
     paths = []
-    
+    n_sliced = len(split_indices)
     for i in range(n_sliced):
         if i + 1 < n_sliced:
             sliced_df = df.iloc[split_indices[i]:split_indices[i+1]]
@@ -322,7 +322,7 @@ for epoch in range(n_epoch):
     # Process each training file with corresponding validation
     for i, train_file in enumerate(data_files['train']):
         print(f"\n--- Processing file pair {i+1}/{len(data_files['train'])} ---")
-        
+        # slice_size = 20
         # Check if training file exists
         if not Path(train_file).exists():
             print(f"Warning: Training file {train_file} not found, skipping...")
@@ -338,7 +338,7 @@ for epoch in range(n_epoch):
         try:
             # TRAINING PHASE for current file
             print(f"Training with {train_file}...")
-            sliced_files = slice_data(train_file, 15)
+            sliced_files = slice_data(train_file)
             
             file_train_losses = []
             for sliced_file in sliced_files:
@@ -381,7 +381,7 @@ for epoch in range(n_epoch):
         if val_file and Path(val_file).exists():
             try:
                 print(f"Validating with {val_file}...")
-                sliced_val_files = slice_data(val_file, 15)
+                sliced_val_files = slice_data(val_file)
                 
                 file_val_losses = []
                 for sliced_val_file in sliced_val_files:
