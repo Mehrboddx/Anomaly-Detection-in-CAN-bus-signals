@@ -62,9 +62,20 @@ loss_factor : 95 # Dummy value, will be assigned dynamically
 time_factor : 99 # Dummy value, will be assigned dynamically
 
 attacks_dict : {
-        'Flooding': 'test_flooding',
-        'Suppress': 'test_suppress',
-        'Plateau': 'test_plateau',
-        'Continuous': 'test_continuous',
-        'Playback': 'test_playback',
-        }
+    'Accelerator Drive 1': 'accelerator_attack_drive_1',
+    'Accelerator Drive 2': 'accelerator_attack_drive_2',
+    'Accelerator Reverse 1': 'accelerator_attack_reverse_1',
+    'Accelerator Reverse 2': 'accelerator_attack_reverse_2',
+    'Correlated Signal Masquerade 1': 'correlated_signal_attack_1_masquerade',
+    'Correlated Signal Masquerade 2': 'correlated_signal_attack_2_masquerade',
+    'Correlated Signal Masquerade 3': 'correlated_signal_attack_3_masquerade',
+    'Max Engine Coolant Temp Masquerade': 'max_engine_coolant_temp_attack_masquerade',
+    'Max Speedometer Masquerade 1': 'max_speedometer_attack_1_masquerade',
+    'Max Speedometer Masquerade 2': 'max_speedometer_attack_2_masquerade',
+    'Max Speedometer Masquerade 3': 'max_speedometer_attack_3_masquerade',
+    'Reverse Light Off Masquerade 1': 'reverse_light_off_attack_1_masquerade',
+    'Reverse Light Off Masquerade 2': 'reverse_light_off_attack_2_masquerade',
+    'Reverse Light Off Masquerade 3': 'reverse_light_off_attack_3_masquerade',
+    'Reverse Light Off Masquerade 4': 'reverse_light_off_attack_4_masquerade',
+    'Reverse Light Off Masquerade 5': 'reverse_light_off_attack_5_masquerade'
+}
