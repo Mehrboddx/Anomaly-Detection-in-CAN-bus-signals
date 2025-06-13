@@ -2,18 +2,20 @@ import glob
 import gc
 from collections import OrderedDict
 import datetime
+import time
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tqdm.auto import tqdm
+import h5py
 
 # Dataset configuration
 DATASET_DIR = '../../Datasets/road/signal_extractions/CANet'
 CSV_FILE = "../../Datasets/road/signal_extractions/ambient/ambient_dyno_drive_basic_long.csv"
-important_ids = [14, 51, 60, 61, 167, 186, 204, 208, 241, 293, 304, 339, 354, 403, 412, 458, 519, 526, 569, 628, 631, 640, 675, 692, 778, 852, 870, 953, 996, 1031, 1072, 1176, 1227, 1255, 1277, 1372, 1399, 1408, 1455, 1505, 1533, 1590, 1621, 1628, 1634, 1661, 1668, 1694, 1751, 1760, 1788]
+
 # Load your dataset to analyze structure
 print("Loading and analyzing dataset structure...")
 df = pd.read_csv(CSV_FILE)
@@ -36,7 +38,7 @@ print("Renamed columns:", df.columns.tolist())
 data_files = {
     'train': glob.glob(f'{DATASET_DIR}/train/*.csv') + glob.glob(f'{DATASET_DIR}/train/*.parquet'),
     'valid': glob.glob(f'{DATASET_DIR}/val/*.csv') + glob.glob(f'{DATASET_DIR}/val/*.parquet'),
-    'test': glob.glob('../../Datasets/road/signal_extractions/attack/*.csv') + glob.glob('../../Datasets/road/signal_extractions/attack/*.parquet')
+    'test': glob.glob('../../Datasets/road/signal_extractions/attacks/*.csv') + glob.glob('../../Datasets/road/signal_extractions/attack/*.parquet')
 }
 
 # List of signal columns (everything after column 2, excluding Label, Time, ID)
@@ -56,8 +58,6 @@ grouped = df.groupby("ID")
 
 for can_id, group in grouped:
     # Count how many rows this CAN ID has → MPS (message per sequence)
-    if can_id not in important_ids:
-        continue  # Skip IDs not in the important list
     ID_MPS[str(can_id)] = len(group)
     
     # For NSIG: find the max number of non-null signal columns used in any row of this ID
@@ -78,7 +78,7 @@ print("ID_NSIG =", dict(ID_NSIG))
 ID_FREQ = {k: v for k, v in ID_MPS.items() if v >= 50}
 ID_NSIG = {k: ID_NSIG[k] for k in ID_FREQ.keys()}
 
-print(f"Filtered to {len(ID_FREQ)} IDs with frequency >= 40")
+print(f"Filtered to {len(ID_FREQ)} IDs with frequency >= 50")
 print("Final ID_FREQ =", ID_FREQ)
 print("Final ID_NSIG =", dict(ID_NSIG))
 
@@ -121,7 +121,7 @@ def load_arrange_data(file_path, print_option=False):
         print(f'# rows: {df.shape[0]:,}')
         if 'Session' in df.columns:
             print(df['Session'].value_counts())
-        print(df.head())
+        
     return df
 
 def str_to_list(data_str: str) -> list:
@@ -180,8 +180,8 @@ def prepare_dataset(file_path, time_cutoff, label='last', print_option=True):
         print(f"Warning: No data after time cutoff {time_cutoff}")
         return {}, np.array([])
     
-    if label == 'last':
-        time_and_labels = data.loc[cutoff_mask, ['Time', 'Session']].to_numpy()
+    
+    time_and_labels = data.loc[cutoff_mask, ['Time', 'Session']].to_numpy()
     
     data_dict = dict()
     for id_str, nsig in ID_NSIG.items():
@@ -200,10 +200,8 @@ def prepare_dataset(file_path, time_cutoff, label='last', print_option=True):
         if print_option:
             print(f"ID {id_str}: {data_dict[id_str].shape}")
     
-    if label and 'time_and_labels' in locals():
-        return data_dict, time_and_labels
-    else:
-        return data_dict
+    
+    return data_dict, time_and_labels
 
 def slice_data(file_path: str):
     """Slice large data files into smaller chunks"""
@@ -234,120 +232,138 @@ def slice_data(file_path: str):
     
     return paths
 
-def load_inputs(data_path, time_cutoff, label, shuffle=True, seed=0):
-    """Load inputs for training/validation"""
-    if not label:
-        x_dict = prepare_dataset(data_path, time_cutoff=time_cutoff, label=False, print_option=False)
-        x_time_label = None
-    else:
-        x_dict, x_time_label = prepare_dataset(data_path, time_cutoff=time_cutoff, label=label, print_option=False)
-    
-    if not x_dict:  # Empty dictionary
-        return {}, np.array([]), x_time_label
-    
+def load_inputs(data_path, time_cutoff, shuffle=True, seed=0):
+    x_dict, x_time_label = prepare_dataset(data_path, time_cutoff=time_cutoff)
     if shuffle:
         np.random.seed(seed)
         n_samples = len(x_dict[list(x_dict.keys())[0]])
         shuffled_idx = np.arange(n_samples)
         np.random.shuffle(shuffled_idx)
-        x_dict = {id_str: seqs[shuffled_idx] for id_str, seqs in x_dict.items()}
-        if label and x_time_label is not None:
-            x_time_label = x_time_label[shuffled_idx]
-    
-    # Create y by concatenating last timestep of all IDs
-    y_parts = []
-    for id_str in FIXED_IDS:
-        if id_str in x_dict:
-            y_parts.append(x_dict[id_str][:, -1, :])
-        else:
-            # If ID not in data, create zeros
-            n_samples = len(x_dict[list(x_dict.keys())[0]]) if x_dict else 0
-            y_parts.append(np.zeros((n_samples, ID_NSIG[id_str])))
-    
-    if y_parts:
-        y = np.concatenate(y_parts, axis=1)
-    else:
-        y = np.array([])
-    
-    if not label:
-        return x_dict, y
-    else:
-        return x_dict, y, x_time_label
+        x_dict = {id: seqs[shuffled_idx] for id, seqs in x_dict.items()}
+        x_time_label = x_time_label[shuffled_idx]
+    y = np.concatenate([x_dict[id][:, -1, :] for id in FIXED_IDS], axis=1)
+    return x_dict, y, x_time_label
+
 
 # Calculate constants
 N_SIGS = sum([n_sig for n_sig in ID_NSIG.values()])
 FIXED_IDS = list(ID_NSIG.keys())
 FIXED_IDS.sort()
 
-print(f"Total number of signals: {N_SIGS}")
-print(f"Fixed IDs: {FIXED_IDS}")
-
 def create_canet_model(h):
-    """Create CANet model architecture"""
-    inputs = {id_str: keras.Input(shape=(ID_MPS[id_str], ID_NSIG[id_str]), name=id_str) for id_str in FIXED_IDS}
-    lstms = [keras.layers.LSTM(h * ID_NSIG[id_str], name=f'lstm_{id_str}') for id_str in FIXED_IDS]
-    x_id = [lstms[i](inputs[id_str]) for i, id_str in enumerate(FIXED_IDS)]
-    x = keras.layers.Concatenate()(x_id)
+    """Create CANet model - FIX: Handle empty FIXED_IDS"""
+    if not FIXED_IDS:
+        raise ValueError("No CAN IDs available for model creation")
+    
+    inputs = {id: keras.Input(shape=(ID_MPS[id], ID_NSIG[id]), name=id) for id in FIXED_IDS}
+    lstms = [keras.layers.LSTM(h * ID_NSIG[id], name=f'lstm_{id}') for id in FIXED_IDS]
+    x_id = [lstms[i](inputs[id]) for i, id in enumerate(FIXED_IDS)]
+    
+    if len(x_id) > 1:
+        x = keras.layers.Concatenate()(x_id)
+    else:
+        x = x_id[0]
+        
     x = keras.layers.Dense((h * N_SIGS) // 2, activation='elu')(x)
     x = keras.layers.Dense(N_SIGS - 1, activation='elu')(x)
     outputs = keras.layers.Dense(N_SIGS, activation='elu')(x)
     return keras.Model(inputs, outputs)
+def get_datasets_from_group(group):
+    """
+    Recursively get all datasets from an HDF5 group as a flat list.
+    """
+    datasets = []
+    def visitor(name, node):
+        if isinstance(node, h5py.Dataset):
+            datasets.append(node[()])
+    group.visititems(visitor)
+    return datasets
 
-# Create and compile model
-print("Creating model...")
+def load_weights_by_order(model, weights_path):
+    with h5py.File(weights_path, 'r') as f:
+        weight_layer_names = list(f.keys())
+        trainable_layers = [layer for layer in model.layers if layer.weights]
+
+        if len(trainable_layers) != len(weight_layer_names):
+            print(f"Warning: trainable layers ({len(trainable_layers)}) != weight groups ({len(weight_layer_names)})")
+
+        for i, layer in enumerate(trainable_layers):
+            if i >= len(weight_layer_names):
+                print(f"No weight group at index {i}")
+                break
+
+            weight_group = f[weight_layer_names[i]]
+            weights = []
+            for key in weight_group.keys():
+                if isinstance(weight_group[key], h5py.Dataset):
+                    weights.append(weight_group[key][()])
+
+            # Print debug info
+            print(f"Layer '{layer.name}' expects {len(layer.weights)} weight arrays")
+            print(f"Weight group '{weight_layer_names[i]}' provides {len(weights)} arrays")
+
+            try:
+                layer.set_weights(weights)
+                print(f"Loaded weights into layer '{layer.name}'")
+            except Exception as e:
+                print(f"Error loading weights into layer '{layer.name}': {e}")
 h = 5
-lr = 0.0001  # learning rate
+dt_experiment = 'models/CANET/road_2025-05-28_16-56-27_epoch01.weights.h5'
 model = create_canet_model(h)
-optimizer = keras.optimizers.Adam(learning_rate=lr)
-model.compile(
-    optimizer=optimizer,
-    loss='mean_squared_error'
-)
-print(f"Model created with {model.count_params():,} parameters")
-
-# Training configuration
+model.summary()
+print(f'# parameters: {model.count_params():,}')
+weight_file = 'models/CANET/road_2025-05-28_16-56-27_epoch01.weights.h5'
+load_weights_by_order(model, 'models/CANET/road_2025-05-28_16-56-27_epoch01.weights.h5')
+mse = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
 batch_size = 250
-n_epoch = 10
 
-# Create models directory
-Path('models/CANET').mkdir(parents=True, exist_ok=True)
+with tf.device('/CPU:0'):
+    # Load the test dataset
+    test_file = data_files['test'][0]
+    print(f'Getting predictions of the first test file {Path(test_file).name} with measuring inference speed')
+    attack = Path(test_file).stem.split('_')[-1]
+    x_test_dict, y_test, time_label_test = load_inputs(test_file, time_cutoff=WINDOW_SIZE + 1, shuffle=False)
+    x_time = time_label_test[:, 0]
+    x_label = time_label_test[:, 1]
+    with tf.device('CPU'):
+        test_ds = tf.data.Dataset.from_tensor_slices(x_test_dict)
+        test_ds = test_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        start_time = time.process_time()
+        y_pred = model.predict(test_ds, verbose=0)
+        mse_values = mse(y_test, y_pred).numpy()
+    end_time = time.process_time()
 
-starttime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-for epoch in range(n_epoch):
-    print(f'********** Epoch {epoch+1} **********')
-    # Train the model
-    for data_file in data_files['train']:
-        sliced_files = slice_data(data_file)  # When the data is too big to make inputs at once
-        for sliced_file in sliced_files:
-            x_train_dict, y_train = load_inputs(sliced_file, time_cutoff=TRAIN_START, label=False, shuffle=True, seed=epoch)
-            for signal_name, tensor in x_train_dict.items():
-                print(f'{signal_name}: shape={tensor.shape}, dtype={tensor.dtype}')
-                print(f'Sample data for {signal_name}: {tensor[:2]}')  # Print first 2 samples
-                print(f'y_train shape: {y_train.shape}, dtype: {y_train.dtype}')
-                print('Sample labels:', y_train[:5])  # Print first 5 labels
-                print(f'Training with {sliced_file} {y_train.shape}')
-            with tf.device('CPU'):
-                train_ds = tf.data.Dataset.from_tensor_slices((x_train_dict, y_train))
-            train_ds = train_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-            model.fit(train_ds, verbose=2)
-            del x_train_dict, y_train, train_ds
-            gc.collect()
+# Measure inference speed
+process_time = end_time - start_time
+inference_speed = len(y_test) / process_time
+print("-----------------------------------------")
+print(f'CPU execution time: {process_time:,} seconds')
+print(f'Inference speed: {inference_speed:.2f} messages per second')
+print("-----------------------------------------")
 
-    # Validate the model
-    val_loss = 0
-    for data_file in data_files['valid']:
-        sliced_files = slice_data(data_file)
-        for sliced_file in sliced_files:
-            x_valid_dict, y_valid = load_inputs(sliced_file, time_cutoff=TRAIN_START, label=False, shuffle=False)
-            gc.collect()
-            print(f'Validating with {sliced_file} {y_valid.shape}')
-            with tf.device('CPU'):
-                valid_ds = tf.data.Dataset.from_tensor_slices((x_valid_dict, y_valid))
-            valid_ds = valid_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-            val_loss += model.evaluate(valid_ds, verbose=2)
-            del x_valid_dict, y_valid, valid_ds
-            gc.collect()
+# Save the results of the first file
+results = pd.DataFrame({'Time': x_time, 'MSE': mse_values, 'Session': x_label})
+results['Time'] = results['Time'].round(7)
+results['Session'] = results['Session'].astype(int)
+save_path = f'../../Results/road_CANet_{dt_experiment}_{attack}.parquet'
+results.to_parquet(save_path, index=False)
+print(f'Predictions are saved at {save_path}')
 
-    # save the model weight
-    weight_name = f'../../models/CANET/road_{starttime}_epoch{epoch+1:02}'
-    model.save_weights(weight_name)
+# Save the results of the rest test files
+for test_file in tqdm(data_files['test'][1:]):
+    print(f'Getting predictions of {Path(test_file).name}')
+    attack = Path(test_file).stem.split('_')[-1]
+    x_test_dict, y_test, time_label_test = load_inputs(test_file, time_cutoff=WINDOW_SIZE + 1, shuffle=False)
+    x_time = time_label_test[:, 0]
+    x_label = time_label_test[:, 1]
+    with tf.device('CPU'):
+        test_ds = tf.data.Dataset.from_tensor_slices(x_test_dict)
+        test_ds = test_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    y_pred = model.predict(test_ds, verbose=0)
+    mse_values = mse(y_test, y_pred).numpy()
+    results = pd.DataFrame({'Time': x_time, 'MSE': mse_values, 'Session': x_label})
+    results['Time'] = results['Time'].round(7)
+    results['Session'] = results['Session'].astype(int)
+    save_path = f'../../Results/road_CANet_{dt_experiment}_{attack}.parquet'
+    results.to_parquet(save_path, index=False)
+    print(f'Predictions are saved at {save_path}')
